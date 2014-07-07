@@ -40,6 +40,17 @@ namespace KerbExpressions
                     Util.Log("Saw new active vessel: " + vessel.vesselName);
 
                     var newActor = GetActorForVessel(vessel);
+
+                    if (newActor == null)
+                    {
+                        //Try command seats
+                        var seatActors = GetCommandSeatEVAs(vessel);
+                        if (seatActors != null)
+                        {
+                            newActor = seatActors.FirstOrDefault();
+                        }
+                    }
+
                     if (_actor == null && newActor != null)
                     {
                         Util.Log("Entered EVA: {0}", newActor.CrewMember.name);
@@ -58,11 +69,6 @@ namespace KerbExpressions
                 if (_actor != null)
                 {
                     UpdateKerbal(_actor);
-                }
-
-                if (Input.GetKeyDown(KeyCode.Alpha0))
-                {
-                    UpdateExpressionSystems();
                 }
             }
             catch (Exception ex)
@@ -116,12 +122,6 @@ namespace KerbExpressions
             return actors;
         }
 
-        KFSMEvent _stumble;
-        KFSMEvent _swimForward;
-        KFSMEvent _ladderClimb;
-        KFSMEvent _startRun;
-        KFSMState _floating;
-
         private void UpdateKerbal(KerbalActor actor)
         {
             if (actor == null)
@@ -132,98 +132,224 @@ namespace KerbExpressions
             var eva = actor.EVA;
             if (Input.GetKeyDown(KeyCode.Alpha1))
             {
-                //var animations = actor.EVA.Animations.GetAllAnimations();
-                //Util.Log("Reading crew {0} animations", actor.CrewMember.name);
-                //foreach (var anim in animations)
-                //{
-                //    Util.Log("\tAnim {0}", anim.animationName);
-                //}
+                Util.Log("Alpha1");
 
-                eva.fsm.RunEvent(_stumble);
+                Util.Log("Set animator expression to 1.0");
+
+                string expressionName = "Expression";
+                int expressionhash = Animator.StringToHash(expressionName);
+                actor.Animator.SetFloat(expressionhash, 1.0f);
+
             }
             else if (Input.GetKeyDown(KeyCode.Alpha2))
             {
-                //Util.Log("Reading crew {0} meshes", actor.CrewMember.name);
-
-                //var panicMeshes = actor.ExpressionAI.panicMeshes;
-                //foreach (var mesh in panicMeshes)
-                //{
-                //    Util.Log("\tPanic mesh {0}, {1} vertices", mesh.name, mesh.vertexCount);
-                //}
-
-                //var wheeeMeshes = actor.ExpressionAI.wheeeMeshes;
-                //foreach (var mesh in wheeeMeshes)
-                //{
-                //    Util.Log("\tWheee mesh {0}, {1} vertices", mesh.name, mesh.vertexCount);
-                //}
+                Util.Log("Alpha2");
 
                 //Resources.FindObjectsOfTypeAll(typeof(SkinnedMeshRenderer))
 
-                eva.fsm.RunEvent(_startRun);
+                //eva.fsm.RunEvent(_startRun);
+
+                Util.Log("Set animator expression to -1.0");
+
+                string expressionName = "Expression";
+                int expressionhash = Animator.StringToHash(expressionName);
+                actor.Animator.SetFloat(expressionhash, -1.0f);
+
             }
             else if (Input.GetKeyDown(KeyCode.Alpha3))
             {
-                eva.fsm.RunEvent(_ladderClimb);
+                Util.Log("Alpha3");
+
+                actor.ShowHelmet = !actor.ShowHelmet;
+                Util.Log("Toggled hasHelmet to " + actor.ShowHelmet);
+
+                //string hasHelmetName = "hasHelmet";
+                //int helmetHash = Animator.StringToHash(hasHelmetName);
+                //actor.Animator.SetBool(helmetHash, _hasHelmet);
             }
             else if (Input.GetKeyDown(KeyCode.Alpha4))
             {
-                eva.fsm.RunEvent(_swimForward);
+                Util.Log("Alpha4");
+
+                if (actor.ExpressionSystem != null)
+                {
+                    actor.ExpressionSystem.fearFactor = 5.0f;
+                    Util.Log("Set " + actor.CrewMember.name + " fear to 5.0");
+                }
+                else
+                {
+                    Util.Log("No expression system for " + actor.CrewMember.name);
+                }
             }
             else if (Input.GetKeyDown(KeyCode.Alpha5))
             {
-                eva.fsm.StartFSM(_floating);
+                Util.Log("Alpha5");
+                if (actor.ExpressionSystem != null)
+                {
+                    actor.ExpressionSystem.fearFactor = -5.0f;
+                    Util.Log("Set " + actor.CrewMember.name + " fear to -5.0");
+                }
+                else
+                {
+                    Util.Log("No expression system for " + actor.CrewMember.name);
+                }
             }
             else if (Input.GetKeyDown(KeyCode.Alpha6))
             {
-                var evaType = eva.GetType();
-                var fields = evaType.GetFields(BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public);
+                Util.Log("Alpha6");
+                actor.IsExpressionEnabled = !actor.IsExpressionEnabled;
+                Util.Log(actor.CrewMember.name + " IsExpressionEnabled is now: " + actor.IsExpressionEnabled);                
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha7))
+            {
+                Util.Log("Alpha7");
 
-                Type kfsmEventType = typeof(KFSMEvent);
-                Type kfsmStateType = typeof(KFSMState);
+                actor.Stumble();
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha8))
+            {
+                Util.Log("Alpha8");
 
-                string fieldNames = "Field Names for " + evaType.ToString() + ":\n";
-                foreach (var field in fields)
+                float variance = UnityEngine.Random.Range((float)0f, (float)1f);
+
+                string varianceName = "Variance";
+                int variancehash = Animator.StringToHash(varianceName);
+                actor.Animator.SetFloat(variancehash, variance);
+
+                Util.Log("Variance set to " + variance);
+                //GetKerbalInfo(actor.Part.gameObject);
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha9))
+            {
+                Util.Log("Alpha9");
+                float variance = UnityEngine.Random.Range((float)0f, (float)1f);
+
+                string varianceName = "SecondaryVariance";
+                int variancehash = Animator.StringToHash(varianceName);
+                actor.Animator.SetFloat(variancehash, variance);
+
+                Util.Log("SecondaryVariance set to " + variance);
+            }
+            else if (Input.GetKeyDown(KeyCode.Alpha0))
+            {
+                Util.Log("Alpha0");
+
+                Util.Log("Set animator expression to 0.0");
+
+                string expressionName = "Expression";
+                int expressionhash = Animator.StringToHash(expressionName);
+                actor.Animator.SetFloat(expressionhash, 0.0f);
+            }
+        }
+
+        private static void ReadAnimations(KerbalActor actor)
+        {
+            var animations = actor.EVA.Animations.GetAllAnimations();
+            string data = "Reading crew " + actor.CrewMember.name + " animations";
+            foreach (var anim in animations)
+            {
+                data += anim.animationName + "\n";
+            }
+            Util.Log(data);
+        }
+
+        private static string GetPropertyValues(object obj)
+        {
+            var type = obj.GetType();
+            string ret = "Properties for " + type.ToString() + " instance:\n";
+
+            try
+            {
+                var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+
+                foreach (var propertyInfo in properties)
                 {
-                    try
+                    var propType = propertyInfo.PropertyType;
+                    object value = propertyInfo.GetValue(obj, null);
+
+                    ret += propertyInfo.Name + " (" + propType.ToString() + ") :" + value.ToString() + "\n";
+                }
+            }
+            catch (Exception ex)
+            {
+                ret += ex.ToString() + "\n";
+            }
+
+            return ret;
+        }
+
+        private static void GetKerbalInfo(GameObject gameObject)
+        {
+            var anim = gameObject.GetComponent<Animator>();
+            var expr = gameObject.GetComponent<kerbalExpressionSystem>();
+
+            string data = "Kerbal GameObject info '" + gameObject.name + "':\n";
+
+            if (anim == null)
+            {
+                data += "Animator is null\n";
+            }
+            else
+            {
+                data += "Animator is present\n";
+                var avatar = anim.avatar;
+                if (avatar == null)
+                {
+                    data += "Avatar is null\n";
+                }
+                else
+                {
+                    data += "Avatar is present: '" + avatar.name + "'\n";
+                    if (avatar.isValid)
                     {
-                        if (field.FieldType == kfsmEventType)
-                        {
-                            KFSMEvent ke = (KFSMEvent)field.GetValue(eva);
-                            fieldNames += "KFSMEvent: " + field.Name + " (" + ke.name + ")\n";
-                            if (ke.name == "Stumble")
-                            {
-                                _stumble = ke;
-                            }
-                            else if (ke.name == "Swim Forward")
-                            {
-                                _swimForward = ke;
-                            }
-                            else if (ke.name == "Ladder Climb")
-                            {
-                                _ladderClimb = ke;
-                            }
-                            else if (ke.name == "Start Run")
-                            {
-                                _startRun = ke;
-                            }
-                        }
-                        else if (field.FieldType == kfsmStateType)
-                        {
-                            KFSMState ks = (KFSMState)field.GetValue(eva);
-                            fieldNames += "KFSMState: " + field.Name + " (" + ks.name + ")\n";
-                            if (ks.name == "Idle (Floating)")
-                            {
-                                _floating = ks;
-                            }
-                        }
-                    }
-                    catch (Exception)
-                    {
-                        fieldNames += "???\n";
+                        data += "Avatar is valid\n";
                     }
                 }
-                Util.Log(fieldNames);
+
+                var controller = anim.runtimeAnimatorController;
+                if (controller == null)
+                {
+                    data += "Controller is null\n";
+                }
+                else
+                {
+                    data += "Controller is present: '" + controller.name + "'\n";
+                }
             }
+            data += "\n";
+            if (expr == null)
+            {
+                data += "kerbalExpressionSystem is null\n";
+            }
+            else
+            {
+                data += "kerbalExpressionSystem is present\n";
+
+                if (expr.kerbal == null)
+                {
+                    data += "kerbal is null\n";
+                }
+                else
+                {
+                    data += "kerbal is present\n";
+                    data += "kerbal name: " + expr.kerbal.crewMemberName + "\n";
+                }
+
+                if (expr.evaPart == null)
+                {
+                    data += "evaPart is null\n";
+                }
+                else
+                {
+                    data += "evaPart is present\n";
+                    data += "evaPart name: " + expr.evaPart.partName + "\n";
+                }
+            }
+            data += "===\n";
+            data += Util.GetGameObjectTree(gameObject);
+            data += Util.GetGameObjectBehaviors(gameObject);
+
+            Util.Log(data);
         }
 
         void UpdateExpressionSystems()
@@ -240,10 +366,67 @@ namespace KerbExpressions
                 foreach (var ai in _expressionSystems)
                 {
                     Util.Log("Exp System {0} attached to {1}", ai.name, ai.gameObject.name);
-                    Util.PrintGameObjectTree(ai.gameObject);
-                    Util.PrintGameObjectBehaviors(ai.gameObject);
+                    string tree = Util.GetGameObjectTree(ai.gameObject);
+                    string behaviors = Util.GetGameObjectBehaviors(ai.gameObject);
+
+                    Util.Log(tree + behaviors);
                 }
             }
+        }
+
+        private void CatalogObjects()
+        {
+            var gameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+
+            string catalog = "";
+
+            foreach (var gameObject in gameObjects)
+            {
+                var transform = gameObject.transform;
+                if (transform.parent == null)
+                {
+                    catalog += GetRootChildren("root", transform);
+                    catalog += "=======================\n\n";
+                }
+            }
+
+            System.IO.File.WriteAllText("catalog.txt", catalog);
+            Util.Log("Catalog written");
+        }
+
+        private string GetRootChildren(string tree, Transform transform)
+        {
+            if (transform == null)
+            {
+                return "";
+            }
+
+            var gameObject = transform.gameObject;
+            tree += " -> " + gameObject.name;
+
+            string activeString = "active";
+            if (!gameObject.activeSelf)
+            {
+                activeString = "inactive";
+            }
+            if (!gameObject.activeInHierarchy)
+            {
+                activeString += ", inactive hierarchy";
+            }
+
+            string ret = tree + " (" + activeString + ")\n";
+
+            ret += Util.GetGameObjectBehaviors(gameObject);
+            ret += "\n";
+
+            int childCount = transform.childCount;
+            for (int i = 0; i < childCount; i++)
+            {
+                var childTransform = transform.GetChild(i);
+                ret += GetRootChildren(tree, childTransform);
+            }
+
+            return ret;
         }
     }
 }

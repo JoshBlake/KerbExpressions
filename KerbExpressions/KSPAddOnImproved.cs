@@ -48,7 +48,7 @@ namespace KerbExpressions
         public bool runOnce;
         public Startup scenes;
 
-        public KSPAddonImproved(Startup mask, bool once = false)
+        public KSPAddonImproved(Startup mask, bool once)
         {
             runOnce = once;
             scenes = mask;

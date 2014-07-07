@@ -15,12 +15,11 @@ namespace KerbExpressions
             UnityEngine.Debug.Log("[" + UnityEngine.Time.realtimeSinceStartup + "] KerbExpressions." + callerClass.Name + "] " + String.Format(s, args));
         }
 
-        public static void PrintGameObjectTree(GameObject gameObject)
+        public static string GetGameObjectTree(GameObject gameObject)
         {
             if (gameObject == null)
             {
-                Util.Log("GameObject is null");
-                return;
+                return "GameObject is null";
             }
 
             var transform = gameObject.transform;
@@ -39,30 +38,29 @@ namespace KerbExpressions
                 tree += transform.gameObject.name + " -> ";
                 transform = transform.parent;
             }
-            tree += " root";
-            Util.Log(tree);
+            tree += " root\n";
+            return tree;
         }
 
-        public static void PrintGameObjectBehaviors(GameObject gameObject)
+        public static string GetGameObjectBehaviors(GameObject gameObject)
         {
             if (gameObject == null)
             {
-                Util.Log("GameObject is null");
-                return;
+                return "GameObject is null";
             }
 
-            var behaviors = gameObject.GetComponentsInChildren<Behaviour>(true);
-            string list = "GameObject behaviors for " + gameObject.name + ": ";
+            var behaviors = gameObject.GetComponents<Behaviour>();
+            string list = "";
             foreach (var behavior in behaviors)
             {
                 string disabledString = "";
                 if (!behavior.enabled)
                 {
-                    disabledString = "disabled ";
+                    disabledString = " (disabled)";
                 }
-                list += behavior.name + " has a " + disabledString + behavior.GetType() + ", ";
+                list += behavior.GetType() + disabledString + "\n";
             }
-            Util.Log(list);
+            return list;
         }
 
     }
