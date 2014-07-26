@@ -51,16 +51,31 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutoStart.cs" />
+    <Compile Include="BodySourceManager.cs" />
+    <Compile Include="BodySourceView.cs" />
+    <Compile Include="BodyMapper.cs" />
+    <Compile Include="Bone.cs" />
     <Compile Include="ExpressionController.cs" />
     <Compile Include="KerbalActor.cs" />
     <Compile Include="KerbExpressionBehavior.cs" />
+    <Compile Include="KinectWrapper.cs" />
+    <Compile Include="KinectWrapper.HandCoded.cs" />
     <Compile Include="KSPAddOnImproved.cs" />
+    <Compile Include="Rendering\LineOverlay.cs" />
+    <Compile Include="Rendering\LineData.cs" />
+    <Compile Include="Rendering\LineDisplay.cs" />
     <Compile Include="Util.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="KinectForUnity.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /y $(TargetPath) $(SolutionDir)..\KSP_win-0.23.5-minimal\GameData\KerbExpressions\Plugins</PostBuildEvent>
+    <PostBuildEvent>copy /y $(TargetPath) $(SolutionDir)..\KSP_win64-0-24-1\GameData\KerbExpressions\Plugins</PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

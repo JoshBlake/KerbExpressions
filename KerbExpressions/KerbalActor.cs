@@ -1,13 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using KerbExpressions.Rendering;
 using UnityEngine;
 
 namespace KerbExpressions
 {
-    class KerbalActor
+    enum Joints
+    {
+
+    }
+
+    class KerbalActor : IDisposable
     {
         Mesh _helmetMesh;
         Mesh _visorMesh;
@@ -18,11 +25,23 @@ namespace KerbExpressions
         KFSMEvent _startRun;
         KFSMState _floating;
 
+        private readonly Dictionary<Transform, LineData> _transformLineData = new Dictionary<Transform, LineData>();
+
         public Part Part { get; private set; }
         public ProtoCrewMember CrewMember { get; private set; }
         public KerbalEVA EVA { get; private set; }
         public kerbalExpressionSystem ExpressionSystem { get; private set; }
         public Animator Animator { get; private set; }
+
+        public Transform ElbowRightTransform { get; private set; }
+        public Transform ShoulderRightTransform { get; private set; }
+
+
+        public Transform ElbowLeftTransform { get; private set; }
+        public Transform ShoulderLeftTransform { get; private set; }
+
+
+        public LineOverlay LineOverlay { get; private set; }
 
         private bool _showHelmet = true;
         public bool ShowHelmet
@@ -69,6 +88,13 @@ namespace KerbExpressions
 
             Part = part;
 
+            if (!Part.GetComponent<LineOverlay>())
+            {
+                //var parentTransform = Part.parentTransform.FindChild("globalMove01");
+
+                LineOverlay = Part.gameObject.AddComponent<LineOverlay>();
+            }
+
             Util.GetGameObjectBehaviors(part.gameObject);
             CrewMember = crewMember;
 
@@ -83,6 +109,163 @@ namespace KerbExpressions
             GetFSM();
 
             GetHeadMeshes();
+
+            GetBoneRig();
+        }
+
+        ~KerbalActor()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (LineOverlay != null)
+            {
+                GameObject.Destroy(LineOverlay);
+                LineOverlay = null;
+            }
+        }
+
+        public void UpdateRigLines()
+        {
+            //var d1 = new LineData(Vector3.zero, new Vector3(1, 0, 0), Color.red);
+            //var d2 = new LineData(Vector3.zero, new Vector3(0, 1, 0), Color.white);
+            //var d3 = new LineData(Vector3.zero, new Vector3(0, 0, 1), Color.blue);
+
+            //LineOverlay.AddLine(d1);
+            //LineOverlay.AddLine(d2);
+            //LineOverlay.AddLine(d3);
+
+            var name = "globalMove01";
+
+            var rootTransform = Part.transform.FindChild(name);
+
+            var offset = new Vector3(1, 0, 0);
+            var rotatedOffset = rootTransform.TransformDirection(offset);
+            UpdateRigHelper(rootTransform, rotatedOffset);
+        }
+
+        private void UpdateRigHelper(Transform parentTransform, Vector3 offset)
+        {
+            if (parentTransform == null)
+            {
+                return;
+            }
+            var parentPos = parentTransform.position + offset;
+
+            var count = parentTransform.childCount;
+            for (int i = 0; i < count; i++)
+            {
+                var childTransform = parentTransform.GetChild(i);
+
+                var childPos = childTransform.position + offset;
+
+                LineData data = null;
+                if (!_transformLineData.TryGetValue(childTransform, out data))
+                {
+                    data = new LineData(parentPos, childPos, Color.green)
+                    {
+                        UseWorldSpace = true,
+                    };
+                    _transformLineData[childTransform] = data;
+                    LineOverlay.AddLine(data);
+                }
+
+                data.Start = parentPos;
+                data.End = childPos;
+
+                UpdateRigHelper(childTransform, offset);
+            }
+        }
+
+        public void ResetRig()
+        {
+            var name = "globalMove01";
+
+            var rootTransform = Part.transform.FindChild(name);
+
+            ResetRigHelper(rootTransform);
+        }
+
+        private void ResetRigHelper(Transform parentTransform)
+        {
+            var count = parentTransform.childCount;
+
+            for (int i = 0; i < count; i++)
+            {
+                var childTransform = parentTransform.GetChild(i);
+                ResetRigHelper(childTransform);
+            }
+
+            parentTransform.localRotation = Quaternion.identity;
+        }
+
+        public void OutputRig()
+        {
+            var name = "globalMove01";
+
+            var rootTransform = Part.transform.FindChild(name);
+
+            string data = OutputRigHelper(rootTransform, "");
+            File.WriteAllText("KerbalRig.txt", data);
+        }
+
+        private string OutputRigHelper(Transform parentTransform, string indent)
+        {
+            if (parentTransform == null)
+            {
+                return "(null parentTransform)\n";
+            }
+            string ret = indent + parentTransform.name;
+            ret += "\tP: " + parentTransform.localPosition.ToString();
+            ret += "\tRl: " + parentTransform.localRotation.eulerAngles.ToString();
+            ret += "\tRg: " + parentTransform.rotation.eulerAngles.ToString() + "\n";
+
+            var count = parentTransform.childCount;
+            indent += "\t";
+            for (int i = 0; i < count; i++)
+            {
+                var childTransform = parentTransform.GetChild(i);
+                ret += OutputRigHelper(childTransform, indent);
+            }
+
+            return ret;
+        }
+
+        private void GetBoneRig()
+        {
+            var moveChild = Part.transform.FindChild("globalMove01");
+            var transforms = moveChild.GetComponentsInChildren<Transform>(true);
+
+            ElbowRightTransform = FindRigTransformByName("bn_r_elbow_a01", transforms);
+            ShoulderRightTransform = FindRigTransformByName("bn_r_arm01 1", transforms);
+
+            ElbowLeftTransform = FindRigTransformByName("bn_l_elbow_a01", transforms);
+            ShoulderLeftTransform = FindRigTransformByName("bn_l_arm01 1", transforms);
+        }
+
+        private Transform FindRigTransformByName(string rigName, Transform[] transforms)
+        {
+            var targetTransform = transforms.Where((t) => t.name == rigName).FirstOrDefault();
+
+            if (targetTransform != null)
+            {
+                var pos = targetTransform.localPosition;
+                var rot = targetTransform.localRotation;
+                Util.Log("Bone rig " + rigName + " found! Pos: " + pos.x + ", " + pos.y + ", " + pos.z + "  Rot: " + rot.x + ", " + rot.y + ", " + rot.z + ", " + rot.w);
+            }
+            else
+            {
+                Util.Log("Bone rig " + rigName + " not found...");
+            }
+            return targetTransform;
         }
 
         private void UpdateHeadMeshes()
@@ -191,7 +374,7 @@ namespace KerbExpressions
                     fieldNames += "???\n";
                 }
             }
-            Util.Log(fieldNames);
+            //Util.Log(fieldNames);
         }
 
         private void GetExpessionAnimator(Part part)

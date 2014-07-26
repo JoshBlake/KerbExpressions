@@ -13,6 +13,8 @@ namespace KerbExpressions
 
         ExpressionController _expController;
 
+        BodySourceManager _bodySourceManager;
+
         public KerbExpressionBehavior()
         {
             Util.Log("Constructed.");
@@ -22,7 +24,11 @@ namespace KerbExpressions
         {
             try
             {
-                _expController = new ExpressionController();
+                var gameObject = new GameObject();
+                _bodySourceManager = gameObject.AddComponent<BodySourceManager>();
+
+                _expController = new ExpressionController(_bodySourceManager);
+
 
                 Util.Log("Awake.");
             }
@@ -44,7 +50,7 @@ namespace KerbExpressions
             }
         }
 
-        public void Update()
+        public void LateUpdate()
         {
             try
             {

@@ -49,19 +49,78 @@ namespace KerbExpressions
                 return "GameObject is null";
             }
 
-            var behaviors = gameObject.GetComponents<Behaviour>();
+            var components = gameObject.GetComponents<Component>();
             string list = "";
-            foreach (var behavior in behaviors)
+            foreach (var component in components)
             {
-                string disabledString = "";
-                if (!behavior.enabled)
+                string behaviorString = "";
+                UnityEngine.Behaviour behavior = component as UnityEngine.Behaviour;
+                if (behavior != null)
                 {
-                    disabledString = " (disabled)";
+                    behaviorString = " (Behavior)";
+                    if (!behavior.enabled)
+                    {
+                        behaviorString += " (disabled)";
+                    }
                 }
-                list += behavior.GetType() + disabledString + "\n";
+                list += "Type: " + component.GetType() + behaviorString + "\n";
             }
             return list;
         }
 
+        public static void WriteObjectCatalog()
+        {
+            var gameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+
+            string catalog = "";
+
+            foreach (var gameObject in gameObjects)
+            {
+                var transform = gameObject.transform;
+                if (transform.parent == null)
+                {
+                    catalog += GetRootChildren("root", transform);
+                    catalog += "=======================\n\n";
+                }
+            }
+
+            System.IO.File.WriteAllText("catalog.txt", catalog);
+            Util.Log("Catalog written");
+        }
+
+        public static string GetRootChildren(string tree, Transform transform)
+        {
+            if (transform == null)
+            {
+                return "";
+            }
+
+            var gameObject = transform.gameObject;
+            tree += " -> " + gameObject.name;
+
+            string activeString = "active";
+            if (!gameObject.activeSelf)
+            {
+                activeString = "inactive";
+            }
+            if (!gameObject.activeInHierarchy)
+            {
+                activeString += ", inactive hierarchy";
+            }
+
+            string ret = tree + " (" + activeString + ")\n";
+
+            ret += Util.GetGameObjectBehaviors(gameObject);
+            ret += "\n";
+
+            int childCount = transform.childCount;
+            for (int i = 0; i < childCount; i++)
+            {
+                var childTransform = transform.GetChild(i);
+                ret += GetRootChildren(tree, childTransform);
+            }
+
+            return ret;
+        }
     }
 }

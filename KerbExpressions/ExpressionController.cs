@@ -4,17 +4,29 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using UnityEngine;
+using Windows.Kinect;
 
 namespace KerbExpressions
 {
     class ExpressionController
     {
-        bool _wasEVAActive = false;
-
+        BodySourceManager _bodySourceManager = null;
         Vessel _lastActiveVessel = null;
+
+        BodyMapper _mapper = new BodyMapper();
 
         KerbalActor _actor = null;
         kerbalExpressionSystem[] _expressionSystems;
+
+        ScreenMessage _noBodyMessage;
+
+        float elbowAngle = 0;
+        float elbowDelta = 1;
+
+        public ExpressionController(BodySourceManager bodySourceManager)
+        {
+            _bodySourceManager = bodySourceManager;
+        }
 
         public void Start()
         {
@@ -63,6 +75,13 @@ namespace KerbExpressions
                     {
                         Util.Log("Switched to new EVA: {0}", newActor.CrewMember.name);
                     }
+
+                    if (_actor != null)
+                    {
+                        _actor.Dispose();
+                        _actor = null;
+                    }
+
                     _actor = newActor;
                 }
 
@@ -70,10 +89,22 @@ namespace KerbExpressions
                 {
                     UpdateKerbal(_actor);
                 }
+
+                CheckUtil();
             }
             catch (Exception ex)
             {
                 Util.Log("{0}: {1}\n{2}", ex.GetType(), ex.Message, ex.StackTrace);
+            }
+        }
+
+        private void CheckUtil()
+        {
+            bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool altDown = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
+            if (Input.GetKeyDown(KeyCode.C) && shiftDown && altDown)
+            {
+                Util.WriteObjectCatalog();
             }
         }
 
@@ -122,6 +153,8 @@ namespace KerbExpressions
             return actors;
         }
 
+        bool _isAvateeringEnabled = false;
+
         private void UpdateKerbal(KerbalActor actor)
         {
             if (actor == null)
@@ -130,115 +163,240 @@ namespace KerbExpressions
             }
 
             var eva = actor.EVA;
-            if (Input.GetKeyDown(KeyCode.Alpha1))
+
+            bool ctrlDown = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
+
+            if (ctrlDown)
             {
-                Util.Log("Alpha1");
-
-                Util.Log("Set animator expression to 1.0");
-
-                string expressionName = "Expression";
-                int expressionhash = Animator.StringToHash(expressionName);
-                actor.Animator.SetFloat(expressionhash, 1.0f);
-
-            }
-            else if (Input.GetKeyDown(KeyCode.Alpha2))
-            {
-                Util.Log("Alpha2");
-
-                //Resources.FindObjectsOfTypeAll(typeof(SkinnedMeshRenderer))
-
-                //eva.fsm.RunEvent(_startRun);
-
-                Util.Log("Set animator expression to -1.0");
-
-                string expressionName = "Expression";
-                int expressionhash = Animator.StringToHash(expressionName);
-                actor.Animator.SetFloat(expressionhash, -1.0f);
-
-            }
-            else if (Input.GetKeyDown(KeyCode.Alpha3))
-            {
-                Util.Log("Alpha3");
-
-                actor.ShowHelmet = !actor.ShowHelmet;
-                Util.Log("Toggled hasHelmet to " + actor.ShowHelmet);
-
-                //string hasHelmetName = "hasHelmet";
-                //int helmetHash = Animator.StringToHash(hasHelmetName);
-                //actor.Animator.SetBool(helmetHash, _hasHelmet);
-            }
-            else if (Input.GetKeyDown(KeyCode.Alpha4))
-            {
-                Util.Log("Alpha4");
-
-                if (actor.ExpressionSystem != null)
+                if (Input.GetKeyDown(KeyCode.Alpha1))
                 {
-                    actor.ExpressionSystem.fearFactor = 5.0f;
-                    Util.Log("Set " + actor.CrewMember.name + " fear to 5.0");
+                    _isAvateeringEnabled = !_isAvateeringEnabled;
+                    Util.Log("Set Avateering to: {0}", _isAvateeringEnabled);
                 }
-                else
+                else if (Input.GetKeyDown(KeyCode.Alpha2))
                 {
-                    Util.Log("No expression system for " + actor.CrewMember.name);
+                    Util.Log("Clear Quaternions");
+                    actor.ResetRig();
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha3))
+                {
+                    Util.Log("Writing kerbal rig...");
+                    actor.OutputRig();
                 }
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha5))
+            else
             {
-                Util.Log("Alpha5");
-                if (actor.ExpressionSystem != null)
+                if (Input.GetKeyDown(KeyCode.Alpha1))
                 {
-                    actor.ExpressionSystem.fearFactor = -5.0f;
-                    Util.Log("Set " + actor.CrewMember.name + " fear to -5.0");
+                    Util.Log("Alpha1");
+
+                    Util.Log("Set animator expression to 1.0");
+
+                    string expressionName = "Expression";
+                    int expressionhash = Animator.StringToHash(expressionName);
+                    actor.Animator.SetFloat(expressionhash, 1.0f);
+
                 }
-                else
+                else if (Input.GetKeyDown(KeyCode.Alpha2))
                 {
-                    Util.Log("No expression system for " + actor.CrewMember.name);
+                    Util.Log("Alpha2");
+
+                    //Resources.FindObjectsOfTypeAll(typeof(SkinnedMeshRenderer))
+
+                    //eva.fsm.RunEvent(_startRun);
+
+                    Util.Log("Set animator expression to -1.0");
+
+                    string expressionName = "Expression";
+                    int expressionhash = Animator.StringToHash(expressionName);
+                    actor.Animator.SetFloat(expressionhash, -1.0f);
+
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha3))
+                {
+                    Util.Log("Alpha3");
+
+                    actor.ShowHelmet = !actor.ShowHelmet;
+                    Util.Log("Toggled hasHelmet to " + actor.ShowHelmet);
+
+                    //string hasHelmetName = "hasHelmet";
+                    //int helmetHash = Animator.StringToHash(hasHelmetName);
+                    //actor.Animator.SetBool(helmetHash, _hasHelmet);
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha4))
+                {
+                    Util.Log("Alpha4");
+
+                    if (actor.ExpressionSystem != null)
+                    {
+                        actor.ExpressionSystem.fearFactor = 5.0f;
+                        Util.Log("Set " + actor.CrewMember.name + " fear to 5.0");
+                    }
+                    else
+                    {
+                        Util.Log("No expression system for " + actor.CrewMember.name);
+                    }
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha5))
+                {
+                    Util.Log("Alpha5");
+                    if (actor.ExpressionSystem != null)
+                    {
+                        actor.ExpressionSystem.fearFactor = -5.0f;
+                        Util.Log("Set " + actor.CrewMember.name + " fear to -5.0");
+                    }
+                    else
+                    {
+                        Util.Log("No expression system for " + actor.CrewMember.name);
+                    }
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha6))
+                {
+                    Util.Log("Alpha6");
+                    actor.IsExpressionEnabled = !actor.IsExpressionEnabled;
+                    Util.Log(actor.CrewMember.name + " IsExpressionEnabled is now: " + actor.IsExpressionEnabled);
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha7))
+                {
+                    Util.Log("Alpha7");
+
+                    actor.Stumble();
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha8))
+                {
+                    Util.Log("Alpha8");
+
+                    float variance = UnityEngine.Random.Range((float)0f, (float)1f);
+
+                    string varianceName = "Variance";
+                    int variancehash = Animator.StringToHash(varianceName);
+                    actor.Animator.SetFloat(variancehash, variance);
+
+                    Util.Log("Variance set to " + variance);
+                    //GetKerbalInfo(actor.Part.gameObject);
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha9))
+                {
+                    Util.Log("Alpha9");
+                    float variance = UnityEngine.Random.Range((float)0f, (float)1f);
+
+                    string varianceName = "SecondaryVariance";
+                    int variancehash = Animator.StringToHash(varianceName);
+                    actor.Animator.SetFloat(variancehash, variance);
+
+                    Util.Log("SecondaryVariance set to " + variance);
+                }
+                else if (Input.GetKeyDown(KeyCode.Alpha0))
+                {
+                    Util.Log("Alpha0");
+
+                    Util.Log("Set animator expression to 0.0");
+
+                    string expressionName = "Expression";
+                    int expressionhash = Animator.StringToHash(expressionName);
+                    actor.Animator.SetFloat(expressionhash, 0.0f);
                 }
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha6))
+
+            UpdateBoneRig(actor);
+
+            actor.UpdateRigLines();
+        }
+
+        private void UpdateBoneRig(KerbalActor actor)
+        {
+            if (!_isAvateeringEnabled)
             {
-                Util.Log("Alpha6");
-                actor.IsExpressionEnabled = !actor.IsExpressionEnabled;
-                Util.Log(actor.CrewMember.name + " IsExpressionEnabled is now: " + actor.IsExpressionEnabled);                
+                return;
+                //actor.Part.animation.Stop();
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha7))
-            {
-                Util.Log("Alpha7");
 
-                actor.Stumble();
+            elbowAngle += elbowDelta;
+            if (elbowAngle >= 90 && elbowDelta >= 0)
+            {
+                elbowDelta = -1;
+                elbowAngle = 90;
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha8))
+            else if (elbowAngle <= 0)
             {
-                Util.Log("Alpha8");
-
-                float variance = UnityEngine.Random.Range((float)0f, (float)1f);
-
-                string varianceName = "Variance";
-                int variancehash = Animator.StringToHash(varianceName);
-                actor.Animator.SetFloat(variancehash, variance);
-
-                Util.Log("Variance set to " + variance);
-                //GetKerbalInfo(actor.Part.gameObject);
+                elbowAngle = 0;
+                elbowDelta = 1;
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha9))
+            //actor.ElbowRightTransform.localRotation = Quaternion.Euler(0, elbowAngle, 0);
+            //actor.ShoulderRightTransform.localRotation = Quaternion.Euler(0, elbowAngle, 0);
+            //actor.ElbowLeftTransform.localRotation = Quaternion.Euler(0, 90-elbowAngle, 0);
+            //actor.ShoulderLeftTransform.localRotation = Quaternion.Euler(0, 90 - elbowAngle, 0);
+
+            actor.ElbowRightTransform.localRotation = Quaternion.identity;
+            actor.ShoulderRightTransform.localRotation = Quaternion.identity;
+            actor.ElbowLeftTransform.localRotation = Quaternion.identity;
+            actor.ShoulderLeftTransform.localRotation = Quaternion.identity;
+
+            return;
+
+            if (actor.ElbowRightTransform == null || !_isAvateeringEnabled)
             {
-                Util.Log("Alpha9");
-                float variance = UnityEngine.Random.Range((float)0f, (float)1f);
-
-                string varianceName = "SecondaryVariance";
-                int variancehash = Animator.StringToHash(varianceName);
-                actor.Animator.SetFloat(variancehash, variance);
-
-                Util.Log("SecondaryVariance set to " + variance);
+                RemoveNoBodyMessage();
+                return;
             }
-            else if (Input.GetKeyDown(KeyCode.Alpha0))
+            var body = _bodySourceManager.PrimaryBody;
+            if (body == null)
             {
-                Util.Log("Alpha0");
+                if (_noBodyMessage == null)
+                {
+                    _noBodyMessage = ScreenMessages.PostScreenMessage("Body not found", 1f, ScreenMessageStyle.UPPER_CENTER);
+                }
+                return;
+            }
 
-                Util.Log("Set animator expression to 0.0");
+            RemoveNoBodyMessage();
 
-                string expressionName = "Expression";
-                int expressionhash = Animator.StringToHash(expressionName);
-                actor.Animator.SetFloat(expressionhash, 0.0f);
+            ScreenMessages.PostScreenMessage("Tracking body!", 2f, ScreenMessageStyle.UPPER_CENTER);
+
+            var rootBone = _mapper.GetBoneOrientations(body);
+
+            //var elbowBone = rootBone.FindBoneWithChild(Windows.Kinect.JointType.WristRight);
+
+            //if (elbowBone != null)
+            //{
+            //    actor.ElbowTransform.localRotation = elbowBone.Rotation;
+            //}
+
+
+            var shoulderRight = body.Joints[JointType.ShoulderRight].Position;
+            var shoulderCenter = body.Joints[JointType.SpineShoulder].Position;
+            var delta = new Vector3(shoulderRight.X - shoulderCenter.X,
+                                    shoulderRight.Y - shoulderCenter.Y,
+                                    shoulderRight.Z - shoulderCenter.Z);
+
+            //Util.Log("Shoulder quaternion: {0}, {1}, {2}, {3}, Delta vec: {4}, {5}, {6}", q.x, q.y, q.z, q.w, delta.x, delta.y, delta.z);
+
+            UpdateTransformRotation(actor.ShoulderRightTransform, rootBone.FindBoneWithChild(JointType.ElbowRight).Rotation);
+            //UpdateTransformRotation(actor.ElbowRightTransform, Quaternion.identity);
+            //UpdateTransformRotation(actor.ElbowRightTransform, rootBone.FindBoneWithChild(JointType.WristRight));
+
+            //UpdateTransformRotation(actor.ShoulderLeftTransform, rootBone.FindBoneWithChild(JointType.ElbowLeft).Rotation);
+
+            actor.ShoulderLeftTransform.localRotation = rootBone.FindBoneWithChild(JointType.ElbowLeft).Rotation;
+            //UpdateTransformRotation(actor.ElbowLeftTransform, Quaternion.identity);
+            //UpdateTransformRotation(actor.ElbowLeftTransform, rootBone.FindBoneWithChild(JointType.WristLeft));
+        }
+
+        private void UpdateTransformRotation(Transform transform, Quaternion quaternion)
+        {
+            quaternion = quaternion * Quaternion.AngleAxis(90, Vector3.forward);
+            quaternion.x *= -1;
+            quaternion.z *= -1;
+
+            transform.localRotation = quaternion;
+        }
+
+        private void RemoveNoBodyMessage()
+        {
+            if (_noBodyMessage != null)
+            {
+                ScreenMessages.RemoveMessage(_noBodyMessage);
+                _noBodyMessage = null;
             }
         }
 
@@ -369,64 +527,10 @@ namespace KerbExpressions
                     string tree = Util.GetGameObjectTree(ai.gameObject);
                     string behaviors = Util.GetGameObjectBehaviors(ai.gameObject);
 
-                    Util.Log(tree + behaviors);
+                    //Util.Log(tree + behaviors);
                 }
             }
         }
 
-        private void CatalogObjects()
-        {
-            var gameObjects = Resources.FindObjectsOfTypeAll<GameObject>();
-
-            string catalog = "";
-
-            foreach (var gameObject in gameObjects)
-            {
-                var transform = gameObject.transform;
-                if (transform.parent == null)
-                {
-                    catalog += GetRootChildren("root", transform);
-                    catalog += "=======================\n\n";
-                }
-            }
-
-            System.IO.File.WriteAllText("catalog.txt", catalog);
-            Util.Log("Catalog written");
-        }
-
-        private string GetRootChildren(string tree, Transform transform)
-        {
-            if (transform == null)
-            {
-                return "";
-            }
-
-            var gameObject = transform.gameObject;
-            tree += " -> " + gameObject.name;
-
-            string activeString = "active";
-            if (!gameObject.activeSelf)
-            {
-                activeString = "inactive";
-            }
-            if (!gameObject.activeInHierarchy)
-            {
-                activeString += ", inactive hierarchy";
-            }
-
-            string ret = tree + " (" + activeString + ")\n";
-
-            ret += Util.GetGameObjectBehaviors(gameObject);
-            ret += "\n";
-
-            int childCount = transform.childCount;
-            for (int i = 0; i < childCount; i++)
-            {
-                var childTransform = transform.GetChild(i);
-                ret += GetRootChildren(tree, childTransform);
-            }
-
-            return ret;
-        }
     }
 }
